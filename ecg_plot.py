@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 PORT_PREFERER = "COM7"     # port préféré si connu (modifiable)
 BAUDRATE = 115200
 FS = 200                   # fréquence d'échantillonnage visée (Hz)
-BUFFER_POINTS = 1000       # points visibles sur le graphe
+BUFFER_POINTS = 500       # points visibles sur le graphe
 
 # Lissage
 SMOOTH_MODE = "iir"        # 'iir' ou 'ma'
@@ -77,18 +77,29 @@ def open_serial():
 def setup_plot():
     plt.ion()
     fig, ax = plt.subplots(figsize=(10, 4))
-    line, = ax.plot([], [], lw=2)
-    ax.set_title("ECG (lissé) - BPM: --")
+    x = np.arange(BUFFER_POINTS)
+    y = np.full(BUFFER_POINTS, np.nan)
+
+    color = (0.08, 0.65, 0.08)
+    line = ax.plot(x, y, lw=2, color=color, label="line")[0]
+    points = ax.plot(x, y, linestyle="None", marker="o", markersize=4, color=color, alpha=0.9, label="points")[0]
+
+    ax.set_title("ECG (lissé) - BPM: -- | Filtre: ON | Mode: line")
     ax.set_xlabel("Échantillons")
     ax.set_ylabel("Tension (V)")
     if YMIN is not None and YMAX is not None:
         ax.set_ylim(YMIN, YMAX)
     else:
         ax.set_ylim(0, 1)
-    ax.set_xlim(0, BUFFER_POINTS)
+    ax.set_xlim(0, BUFFER_POINTS - 1)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    return fig, ax, line
+
+    # par défaut afficher uniquement le tracé connecté
+    line.set_visible(True)
+    points.set_visible(False)
+
+    return fig, ax, line, points, x, y
 
 def detect_bpm(data, fs):
     """Détecte les pics R et calcule le BPM de façon plus robuste."""
@@ -142,11 +153,35 @@ def detect_bpm(data, fs):
 def main():
     ser = open_serial()
     smoother = Smoother(mode=SMOOTH_MODE, alpha=ALPHA, ma_window=MA_WINDOW)
-    data = deque(maxlen=BUFFER_POINTS)
-    fig, ax, line = setup_plot()
+    fig, ax, line, points, x, y = setup_plot()
+
+    filter_enabled = True
+    display_mode = "line"  # "line" ou "points"
 
     last_bpm_update = time.time()
     bpm = None
+
+    def update_title():
+        status = "ON" if filter_enabled else "OFF"
+        ax.set_title(f"ECG (lissé) - BPM: {bpm or '--'} | Filtre: {status} | Mode: {display_mode}")
+
+    def on_key(event):
+        nonlocal filter_enabled, display_mode
+        if event.key is None:
+            return
+        key = event.key.lower()
+        if key == "g":
+            filter_enabled = not filter_enabled
+            update_title()
+            fig.canvas.draw_idle()
+        elif key == "d":
+            display_mode = "points" if display_mode == "line" else "line"
+            line.set_visible(display_mode == "line")
+            points.set_visible(display_mode == "points")
+            update_title()
+            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("key_press_event", on_key)
 
     try:
         while True:
@@ -159,21 +194,28 @@ def main():
                 except ValueError:
                     continue
 
-                val = smoother.push(val)
-                data.append(val)
+                # appliquer ou bypasser le filtre
+                val = smoother.push(val) if filter_enabled else val
 
-                # Mise à jour du tracé
-                line.set_xdata(range(len(data)))
-                line.set_ydata(list(data))
+                # faire défiler le buffer rapidement (remplace np.roll(..., out=y))
+                y[:-1] = y[1:]
+                y[-1] = val
 
-                # Calcul BPM toutes les 2 secondes
-                if time.time() - last_bpm_update > 2 and len(data) > FS * 2:
-                    bpm_est = detect_bpm(data, FS)
-                    if bpm_est:
-                        bpm = bpm_est
-                        ax.set_title(f"ECG (lissé) - BPM: {bpm}")
+                # mise à jour minimale des artistes
+                line.set_ydata(y)
+                points.set_ydata(y)
+
+                # Calcul BPM toutes les 2 secondes (sur les valeurs valides)
+                if time.time() - last_bpm_update > 2:
+                    valid = y[~np.isnan(y)]
+                    if len(valid) > FS * 2:
+                        bpm_est = detect_bpm(valid.tolist(), FS)
+                        if bpm_est:
+                            bpm = bpm_est
                     last_bpm_update = time.time()
+                    update_title()
 
+                # pause courte pour event loop matplotlib
                 plt.pause(0.001)
             else:
                 time.sleep(0.002)
@@ -181,9 +223,11 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        ser.close()
+        try:
+            ser.close()
+        except Exception:
+            pass
         print("\nPort série fermé. Au revoir 👋")
-
 
 if __name__ == "__main__":
     main()

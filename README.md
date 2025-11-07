@@ -56,15 +56,22 @@ int main() {
 }
 ```
 
-🎥 Aperçu du signal ECG capté par les électrodes et traité par la carte STM32 :
+## 💻 Script Python (affichage + BPM + contrôle clavier)
+
 ![img.png](img.png)
 
-📊 Résultat final
-Signal ECG fluide et lisible.
+Le script Python lit en continu les valeurs envoyées par la carte STM32,  
+applique un **lissage numérique**, détecte les **pics R** pour calculer le **BPM**,  
+et affiche le signal ECG en temps réel avec **Matplotlib**.
 
-Affichage en temps réel à environ 200 Hz.
-
-Interface légère et portable sur n’importe quel PC avec Python et PySerial.
+### ⚙️ Fonctionnalités principales :
+- 📡 Détection automatique du port COM (Windows)
+- 🧮 Calcul du **BPM** toutes les 2 secondes
+- 🧹 Filtrage IIR (exponentiel) ou moyenne glissante
+- 🎨 Affichage en **temps réel** du tracé ECG
+- ⌨️ **Contrôles clavier** :
+  - | **G** | Activer / désactiver le filtre de lissage 
+  - | **D** | Changer le mode d’affichage (ligne ↔ points)
 
 ## 🚀 Installation
 
@@ -91,6 +98,6 @@ Une fenêtre matplotlib s’ouvre et affiche le signal ECG en temps réel.
 
 
 ## 🧠 Auteur
-
+🧑‍🎓 Compare Adrien, Zemmouchi Lyess, Boissier Corentin 
 📍 Projet réalisé dans le cadre du cours de **Systèmes d’Exploitation – ISEN 4A**  
 📅 **Année : 2025**
