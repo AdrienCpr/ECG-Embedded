@@ -98,6 +98,6 @@ Une fenêtre matplotlib s’ouvre et affiche le signal ECG en temps réel.
 
 
 ## 🧠 Auteur
-🧑‍🎓 Compare Adrien, Zemmouchi Lyess, Boissier Corentin 
-📍 Projet réalisé dans le cadre du cours de **Systèmes d’Exploitation – ISEN 4A**  
-📅 **Année : 2025**
+- 🧑‍🎓 Compare Adrien, Zemmouchi Lyess, Boissier Corentin 
+- 📍 Projet réalisé dans le cadre du cours de **Systèmes d’Exploitation – ISEN 4A**  
+- 📅 **Année : 2025**
